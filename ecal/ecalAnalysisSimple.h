@@ -33,6 +33,7 @@ public:
 
 private:
   TTree* fTree;
+  TTree* eTree;
   Double_t fX;
   Double_t fY;
   Double_t fCX;
@@ -46,9 +47,21 @@ private:
   Int_t fEv;
   Int_t fCellNum;
   Int_t fADC;
+  Int_t fspdg;
+  Double_t fsx,fsy,fsz,fspx,fspy,fspz;
+  Int_t fdpdg;
+  Double_t fdx,fdy,fdz,fdpx,fdpy,fdpz,fde,fdtime;
+  Bool_t    fdecay;
+  Bool_t    isDecay;
+  Int_t fmotherid;
+  Int_t eDecTrackId;
+  Double_t fElEloss;
+    
   void InitTree();
   ecalStructure* fStr;
   TClonesArray* fTracks;
+  TClonesArray* fPLTracks;
+  TClonesArray* fMCTracks;
 
   ecalAnalysisSimple(const ecalAnalysisSimple&);
   ecalAnalysisSimple operator=(const ecalAnalysisSimple&);

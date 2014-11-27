@@ -17,5 +17,6 @@
 #pragma link C++ class ecalDigi;
 #pragma link C++ class ecalPrepare;
 #pragma link C++ class ecalAnalysisSimple;
+#pragma link C++ class MuonBeamGen;
 
 #endif

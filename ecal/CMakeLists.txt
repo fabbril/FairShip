@@ -35,6 +35,7 @@ ecalStructureFiller.cxx
 ecalDigi.cxx
 ecalPrepare.cxx
 ecalAnalysisSimple.cxx
+MuonBeamGen.cxx
 )
 
 Set(LINKDEF ecalLinkDef.h)
