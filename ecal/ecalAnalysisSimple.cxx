@@ -35,8 +35,7 @@ void ecalAnalysisSimple::Exec(Option_t* option)
     
     //
     // Get MCTrack information
-    //
-    
+    //    
     Int_t nMC=fMCTracks->GetEntries();
     ShipMCTrack* mutrk = (ShipMCTrack*) fMCTracks->At(3);
     fspdg = mutrk->GetPdgCode();
