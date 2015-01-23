@@ -5,8 +5,9 @@ import shipunit as u
 from ShipGeoConfig import ConfigRegistry
 
 PDG = ROOT.TDatabasePDG.Instance()
-inputFile = None
-dy = None
+inputFile = 'geant_mudec_g4_newgeo_10k_rec.root'
+inputFile2 = 'ana_mudec_g4_newgeo_10k.root'
+dy = 10.
 
 try:
         opts, args = getopt.getopt(sys.argv[1:], "f:A:Y:i", [])
@@ -30,9 +31,14 @@ if not dy:
     dy = None
 else:
  inputFile = 'ship.'+str(dy)+'Pythia8-TGeant4_rec.root'
+ inputFile = 'geant_mudec_g4_newgeo_10k_rec.root'
+print dy
+print inputFile
   
 f     = ROOT.TFile(inputFile)
+f2    = ROOT.TFile(inputFile2)
 sTree = f.cbmsim
+sTree2 = f2.decay
 
 # init geometry and mag. field
 ShipGeo = ConfigRegistry.loadpy("$FAIRSHIP/geometry/geometry_config.py", Yheight = dy )
@@ -56,20 +62,23 @@ leaves = sTree.GetListOfLeaves()
 names  = ut.setAttributes(ev, leaves)
 
 h = {}
-ut.bookHist(h,'delPOverP','delP / P',100,0.,50.,100,-0.5,0.5)
-ut.bookHist(h,'delPOverP2','delP / P chi2/nmeas<25',100,0.,50.,100,-0.5,0.5)
-ut.bookHist(h,'chi2','chi2/nmeas after trackfit',100,0.,100.)
-ut.bookHist(h,'IP','Impact Parameter',100,0.,10.)
-ut.bookHist(h,'Doca','Doca between two tracks',100,0.,10.)
-ut.bookHist(h,'IP0','Impact Parameter to target',100,0.,100.)
-ut.bookHist(h,'IP0/mass','Impact Parameter to target vs mass',100,0.,2.,100,0.,100.)
-ut.bookHist(h,'HNL','reconstructed Mass',100,0.,2.)
-ut.bookHist(h,'meas','number of measurements',40,-0.5,39.5)
-ut.bookHist(h,'measVSchi2','number of measurements vs chi2/meas',40,-0.5,39.5,100,0.,100.)
-ut.bookHist(h,'distu','distance to wire',100,0.,1.)
-ut.bookHist(h,'distv','distance to wire',100,0.,1.)
-ut.bookHist(h,'disty','distance to wire',100,0.,1.)
-ut.bookHist(h,'meanhits','mean number of hits / track',50,-0.5,49.5)
+ut.bookHist(h,'delPOverP','delP / P',100,0.,50.,100,-0.2,0.2)
+ut.bookHist(h,'delPOverP2','delP / P chi2<25',100,0.,50.,100,-0.2,0.2)
+ut.bookHist(h,'chi2','chi2 after trackfit',100,0.,1000.)
+#ut.bookHist(h,'IP','Impact Parameter',100,0.,10.)
+#ut.bookHist(h,'Doca','Doca between two tracks',100,0.,10.)
+#ut.bookHist(h,'IP0','Impact Parameter to target',100,0.,100.)
+#ut.bookHist(h,'IP0/mass','Impact Parameter to target vs mass',100,0.,2.,100,0.,100.)
+#ut.bookHist(h,'HNL','reconstructed Mass',100,0.,2.)
+ut.bookHist(h,'meas','number of measurements',25,-0.5,24.5)
+ut.bookHist(h,'delEOverP','delE / P',80,0.,0.36)
+ut.bookHist(h,'P_ele','momentum of selected electrons',50,0.,50.)
+ut.bookHist(h,'posZ_ele','Z position of selected electrons',50,1500.,1510.)
+ut.bookHist(h,'posXY_ele','X Y position of selected electrons',50,-300.,300.,50,-300.,300.)
+ut.bookHist(h,'P_all','momentum of all electrons',50,0.,50.)
+ut.bookHist(h,'posZ_all','Z position of all electrons ',50,1500.,1510.)
+ut.bookHist(h,'posXY_all','X Y position of all electrons',50,-300.,300.,50,-300.,300.)
+ut.bookHist(h,'pdgCode','PDG codes',40,-20.,20)
 
 def fitSingleGauss(x,ba=None,be=None):
     name    = 'myGauss_'+x 
@@ -115,20 +124,35 @@ def makePlots():
    cv = h['fitresults'].cd(4)
    h['delPOverP2_proj'] = h['delPOverP2'].ProjectionY()
    h['delPOverP2_proj'].Draw()
-   fitSingleGauss('delPOverP2_proj')
+   h['delPOverP2_proj'].Fit('gaus')
    h['fitresults'].Print('fitresults.gif')
    ut.bookCanvas(h,key='fitresults2',title='Fit Results',nx=1600,ny=1200,cx=2,cy=2)
    print 'finished with first canvas'
    cv = h['fitresults2'].cd(1)
-   h['Doca'].Draw()
+   h['P_ele'].Draw()
    cv = h['fitresults2'].cd(2)
-   h['IP0'].Draw()
+   h['posXY_ele'].Draw()
+   #h['IP0'].Draw()
    cv = h['fitresults2'].cd(3)
-   h['HNL'].Draw()
-   fitSingleGauss('HNL')
+   h['delEOverP'].Draw()
+   h['delEOverP'].Fit('gaus','', '', 0.15, 0.198)
+   # h['HNL'].Draw()
+   #h['HNL'].Fit('gaus')
    cv = h['fitresults2'].cd(4)
-   h['IP0/mass'].Draw('box')
+   h['posZ_ele'].Draw()
+   #h['IP0/mass'].Draw('box')
    h['fitresults2'].Print('fitresults2.gif')
+   ut.bookCanvas(h,key='fitresults3',title='Fit Results',nx=1600,ny=1200,cx=2,cy=2)
+   print 'finished with second canvas'
+   cv = h['fitresults3'].cd(1)
+   h['P_all'].Draw()
+   cv = h['fitresults3'].cd(2)
+   h['posXY_all'].Draw()
+   cv = h['fitresults3'].cd(3)
+   h['posZ_all'].Draw()
+   cv = h['fitresults3'].cd(4)
+   h['pdgCode'].Draw()
+   h['fitresults3'].Print('fitresults3.gif')
    print 'finished making plots'
 
 
@@ -154,8 +178,16 @@ def myVertex(t1,t2,PosDir):
 # start event loop
 def myEventLoop():
  nEvents = sTree.GetEntries()
+ nEvents2 = sTree2.GetEntries()
+ count = 0
+ ntrack = 0
+ notfitt = 0
  for n in range(nEvents):
+  count+=1
   rc = sTree.GetEntry(n)
+  rc2 = sTree2.GetEntry(n)
+  eloss = sTree2.ElEloss
+  eid = sTree2.eid
 # make some straw hit analysis
   hitlist = {}
   for ahit in sTree.strawtubesPoint:
@@ -179,7 +211,10 @@ def myEventLoop():
    fitStatus   = atrack.getFitStatus()
    nmeas = atrack.getNumPoints()
    h['meas'].Fill(nmeas)
-   if not fitStatus.isFitConverged() : continue
+   if not fitStatus.isFitConverged() :
+     notfitt += 1
+    #print "notfitt =", notfitt
+    #continue
    fittedTracks[key] = atrack
 # needs different study why fit has not converged, continue with fitted tracks
    chi2        = fitStatus.getChi2()/nmeas
@@ -205,8 +240,19 @@ def myEventLoop():
    dist = 0
    for i in range(3):   dist += (vx(i)-trackPos(i)-t*trackDir(i))**2
    dist = ROOT.TMath.Sqrt(dist)
-   h['IP'].Fill(dist) 
-   key+= 1  
+#h['IP'].Fill(dist)
+   key+= 1
+   h['pdgCode'].Fill(mcPart.GetPdgCode())
+   h['posZ_all'].Fill(trackPos(2))
+   h['posXY_all'].Fill(trackPos(0), trackPos(1))
+   h['P_all'].Fill(P)
+                       
+   #if mcPartKey == eid :
+   h['delEOverP'].Fill(eloss/P)
+   h['P_ele'].Fill(P)
+   h['posZ_ele'].Fill(trackPos(2))
+   h['posXY_ele'].Fill(trackPos(0), trackPos(1))
+
 # ---
 # go for 2-track combinations
   if len(fittedTracks) == 2:
@@ -247,9 +293,9 @@ def myEventLoop():
      dist = 0
      for i in range(3):   dist += (tr(i)-HNLPos(i)-t*HNL(i)/HNL.P())**2
      dist = ROOT.TMath.Sqrt(dist)
-     h['IP0'].Fill(dist)  
-     h['IP0/mass'].Fill(HNL.M(),dist)
-     h['HNL'].Fill(HNL.M())
+     #h['IP0'].Fill(dist)
+     #h['IP0/mass'].Fill(HNL.M(),dist)
+#h['HNL'].Fill(HNL.M())
 
 
 def access2SmearedHits():

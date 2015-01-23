@@ -5,11 +5,11 @@ import shipRoot_conf
 import ShipGeoConfig
 
 
-inFile ="geant.root"  
-outFile="ana.root"
+inFile ="geant_mudec_g4_newgeo_10k_rec.root"
+outFile="ana_mudec_g4_newgeo_10k.root"
 # Parameter file name
 parFile="params.root"
-nEvents=2000
+nEvents=10000
 # In general, the following parts need not be touched
 # ========================================================================
 
