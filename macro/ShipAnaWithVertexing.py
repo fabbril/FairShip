@@ -5,15 +5,9 @@ import shipunit as u
 from ShipGeoConfig import ConfigRegistry
 
 PDG = ROOT.TDatabasePDG.Instance()
-<<<<<<< HEAD
-inputFile = 'geant_mudec_g4_newgeo_10k_rec.root'
-inputFile2 = 'ana_mudec_g4_newgeo_10k.root'
-dy = 10.
-=======
 inputFile = None
 dy = None
 nEvents   = 99999
->>>>>>> FETCH_HEAD
 
 try:
         opts, args = getopt.getopt(sys.argv[1:], "n:f:A:Y:i", ["nEvents="])
@@ -37,19 +31,10 @@ if not dy:
   except:
     dy = None
 else:
-<<<<<<< HEAD
- inputFile = 'ship.'+str(dy)+'Pythia8-TGeant4_rec.root'
- inputFile = 'geant_mudec_g4_newgeo_10k_rec.root'
-print dy
-print inputFile
-=======
  inputFile = 'ship.'+str(dy)+'.Pythia8-TGeant4_rec.root'
->>>>>>> FETCH_HEAD
   
 f     = ROOT.TFile(inputFile)
-f2    = ROOT.TFile(inputFile2)
 sTree = f.cbmsim
-sTree2 = f2.decay
 
 # init geometry and mag. field
 ShipGeo = ConfigRegistry.loadpy("$FAIRSHIP/geometry/geometry_config.py", Yheight = dy )
@@ -68,30 +53,13 @@ bfield = ROOT.genfit.BellField(ShipGeo.Bfield.max, ShipGeo.Bfield.z,2)
 fM = ROOT.genfit.FieldManager.getInstance()
 fM.init(bfield)
 
+ev     = ut.PyListOfLeaves()
+leaves = sTree.GetListOfLeaves()
+names  = ut.setAttributes(ev, leaves)
+
 h = {}
-<<<<<<< HEAD
-ut.bookHist(h,'delPOverP','delP / P',100,0.,50.,100,-0.2,0.2)
-ut.bookHist(h,'delPOverP2','delP / P chi2<25',100,0.,50.,100,-0.2,0.2)
-ut.bookHist(h,'chi2','chi2 after trackfit',100,0.,1000.)
-#ut.bookHist(h,'IP','Impact Parameter',100,0.,10.)
-#ut.bookHist(h,'Doca','Doca between two tracks',100,0.,10.)
-#ut.bookHist(h,'IP0','Impact Parameter to target',100,0.,100.)
-#ut.bookHist(h,'IP0/mass','Impact Parameter to target vs mass',100,0.,2.,100,0.,100.)
-#ut.bookHist(h,'HNL','reconstructed Mass',100,0.,2.)
-ut.bookHist(h,'meas','number of measurements',25,-0.5,24.5)
-ut.bookHist(h,'delEOverP','delE / P',80,0.,0.36)
-ut.bookHist(h,'P_ele','momentum of selected electrons',50,0.,50.)
-ut.bookHist(h,'posZ_ele','Z position of selected electrons',50,1500.,1510.)
-ut.bookHist(h,'posXY_ele','X Y position of selected electrons',50,-300.,300.,50,-300.,300.)
-ut.bookHist(h,'P_all','momentum of all electrons',50,0.,50.)
-ut.bookHist(h,'posZ_all','Z position of all electrons ',50,1500.,1510.)
-ut.bookHist(h,'posXY_all','X Y position of all electrons',50,-300.,300.,50,-300.,300.)
-ut.bookHist(h,'pdgCode','PDG codes',40,-20.,20)
-=======
 ut.bookHist(h,'delPOverP','delP / P',100,0.,50.,100,-0.5,0.5)
 ut.bookHist(h,'delPOverP2','delP / P chi2/nmeas<25',100,0.,50.,100,-0.5,0.5)
-ut.bookHist(h,'delPOverPz','delPz / Pz',100,0.,50.,100,-0.5,0.5)
-ut.bookHist(h,'delPOverP2z','delPz / Pz chi2/nmeas<25',100,0.,50.,100,-0.5,0.5)
 ut.bookHist(h,'chi2','chi2/nmeas after trackfit',100,0.,100.)
 ut.bookHist(h,'IP','Impact Parameter',100,0.,10.)
 ut.bookHist(h,'Doca','Doca between two tracks',100,0.,10.)
@@ -104,25 +72,6 @@ ut.bookHist(h,'distu','distance to wire',100,0.,1.)
 ut.bookHist(h,'distv','distance to wire',100,0.,1.)
 ut.bookHist(h,'disty','distance to wire',100,0.,1.)
 ut.bookHist(h,'meanhits','mean number of hits / track',50,-0.5,49.5)
->>>>>>> FETCH_HEAD
-
-def myVertex(t1,t2,PosDir):
- # closest distance between two tracks
-   V=0
-   for i in range(3):   V += PosDir[t1][1](i)*PosDir[t2][1](i)
-   S1=0
-   for i in range(3):   S1 += (PosDir[t1][0](i)-PosDir[t2][0](i))*PosDir[t1][1](i)
-   S2=0
-   for i in range(3):   S2 += (PosDir[t1][0](i)-PosDir[t2][0](i))*PosDir[t2][1](i)
-   l = (S2-S1*V)/(1-V*V)
-   x2 = PosDir[t2][0](0)+l*PosDir[t2][1](0)
-   y2 = PosDir[t2][0](1)+l*PosDir[t2][1](1)
-   z2 = PosDir[t2][0](2)+l*PosDir[t2][1](2)
-   x1 = PosDir[t1][0](0)+l*PosDir[t1][1](0)
-   y1 = PosDir[t1][0](1)+l*PosDir[t1][1](1)
-   z1 = PosDir[t1][0](2)+l*PosDir[t1][1](2)
-   dist = ROOT.TMath.Sqrt((x1-x2)**2+(y1-y2)**2+(z1-z2)**2)
-   return (x1+x2)/2.,(y1+y2)/2.,(z1+z2)/2.,dist
 
 def fitSingleGauss(x,ba=None,be=None):
     name    = 'myGauss_'+x 
@@ -156,77 +105,60 @@ def makePlots():
    h['meanhits'].Draw()
    ut.bookCanvas(h,key='fitresults',title='Fit Results',nx=1600,ny=1200,cx=2,cy=2)
    cv = h['fitresults'].cd(1)
-   h['delPOverPz'].Draw('box')
+   h['delPOverP'].Draw('box')
    cv = h['fitresults'].cd(2)
    cv.SetLogy(1)
    h['chi2'].Draw()
    cv = h['fitresults'].cd(3)
-   h['delPOverPz_proj'] = h['delPOverPz'].ProjectionY()
+   h['delPOverP_proj'] = h['delPOverP'].ProjectionY()
    ROOT.gStyle.SetOptFit(11111)
-   h['delPOverPz_proj'].Draw()
-   h['delPOverPz_proj'].Fit('gaus')
+   h['delPOverP_proj'].Draw()
+   h['delPOverP_proj'].Fit('gaus')
    cv = h['fitresults'].cd(4)
-<<<<<<< HEAD
    h['delPOverP2_proj'] = h['delPOverP2'].ProjectionY()
    h['delPOverP2_proj'].Draw()
-   h['delPOverP2_proj'].Fit('gaus')
-=======
-   h['delPOverP2z_proj'] = h['delPOverP2z'].ProjectionY()
-   h['delPOverP2z_proj'].Draw()
-   fitSingleGauss('delPOverP2z_proj')
->>>>>>> FETCH_HEAD
+   fitSingleGauss('delPOverP2_proj')
    h['fitresults'].Print('fitresults.gif')
    ut.bookCanvas(h,key='fitresults2',title='Fit Results',nx=1600,ny=1200,cx=2,cy=2)
    print 'finished with first canvas'
    cv = h['fitresults2'].cd(1)
-   h['P_ele'].Draw()
+   h['Doca'].Draw()
    cv = h['fitresults2'].cd(2)
-   h['posXY_ele'].Draw()
-   #h['IP0'].Draw()
+   h['IP0'].Draw()
    cv = h['fitresults2'].cd(3)
-   h['delEOverP'].Draw()
-   h['delEOverP'].Fit('gaus','', '', 0.15, 0.198)
-   # h['HNL'].Draw()
-   #h['HNL'].Fit('gaus')
+   h['HNL'].Draw()
+   fitSingleGauss('HNL')
    cv = h['fitresults2'].cd(4)
-   h['posZ_ele'].Draw()
-   #h['IP0/mass'].Draw('box')
+   h['IP0/mass'].Draw('box')
    h['fitresults2'].Print('fitresults2.gif')
-   ut.bookCanvas(h,key='fitresults3',title='Fit Results',nx=1600,ny=1200,cx=2,cy=2)
-   print 'finished with second canvas'
-   cv = h['fitresults3'].cd(1)
-   h['P_all'].Draw()
-   cv = h['fitresults3'].cd(2)
-   h['posXY_all'].Draw()
-   cv = h['fitresults3'].cd(3)
-   h['posZ_all'].Draw()
-   cv = h['fitresults3'].cd(4)
-   h['pdgCode'].Draw()
-   h['fitresults3'].Print('fitresults3.gif')
    print 'finished making plots'
 
+
+def myVertex(t1,t2,PosDir):
+ # closest distance between two tracks
+   V=0
+   for i in range(3):   V += PosDir[t1][1](i)*PosDir[t2][1](i)
+   S1=0
+   for i in range(3):   S1 += (PosDir[t1][0](i)-PosDir[t2][0](i))*PosDir[t1][1](i)
+   S2=0
+   for i in range(3):   S2 += (PosDir[t1][0](i)-PosDir[t2][0](i))*PosDir[t2][1](i)
+   l = (S2-S1*V)/(1-V*V)
+   x2 = PosDir[t2][0](0)+l*PosDir[t2][1](0)
+   y2 = PosDir[t2][0](1)+l*PosDir[t2][1](1)
+   z2 = PosDir[t2][0](2)+l*PosDir[t2][1](2)
+   x1 = PosDir[t1][0](0)+l*PosDir[t1][1](0)
+   y1 = PosDir[t1][0](1)+l*PosDir[t1][1](1)
+   z1 = PosDir[t1][0](2)+l*PosDir[t1][1](2)
+   dist = ROOT.TMath.Sqrt((x1-x2)**2+(y1-y2)**2+(z1-z2)**2)
+   return (x1+x2)/2.,(y1+y2)/2.,(z1+z2)/2.,dist
+
 # start event loop
-<<<<<<< HEAD
-def myEventLoop():
- nEvents = sTree.GetEntries()
- nEvents2 = sTree2.GetEntries()
- count = 0
- ntrack = 0
- notfitt = 0
- for n in range(nEvents):
-  count+=1
-  rc = sTree.GetEntry(n)
-  rc2 = sTree2.GetEntry(n)
-  eloss = sTree2.ElEloss
-  eid = sTree2.eid
-=======
 def myEventLoop(N):
  nEvents = min(sTree.GetEntries(),N)
  for n in range(nEvents): 
   rc = sTree.GetEntry(n)
   wg = sTree.MCTrack[0].GetWeight()
   if not wg>0.: wg=1.
->>>>>>> FETCH_HEAD
 # make some straw hit analysis
   hitlist = {}
   for ahit in sTree.strawtubesPoint:
@@ -250,10 +182,7 @@ def myEventLoop(N):
    fitStatus   = atrack.getFitStatus()
    nmeas = atrack.getNumPoints()
    h['meas'].Fill(nmeas)
-   if not fitStatus.isFitConverged() :
-     notfitt += 1
-    #print "notfitt =", notfitt
-    #continue
+   if not fitStatus.isFitConverged() : continue
    fittedTracks[key] = atrack
 # needs different study why fit has not converged, continue with fitted tracks
    chi2        = fitStatus.getChi2()/nmeas
@@ -261,19 +190,14 @@ def myEventLoop(N):
    h['chi2'].Fill(chi2,wg)
    h['measVSchi2'].Fill(atrack.getNumPoints(),chi2)
    P = fittedState.getMomMag()
-   Pz = fittedState.getMom().z()
    mcPartKey = sTree.fitTrack2MC[key]
    mcPart    = sTree.MCTrack[mcPartKey]
    if not mcPart : continue
    Ptruth    = mcPart.GetP()
-   Ptruthz    = mcPart.GetPz()
    delPOverP = (Ptruth - P)/Ptruth
    h['delPOverP'].Fill(Ptruth,delPOverP)
-   delPOverPz = (1./Ptruthz - 1./Pz) * Ptruthz
-   h['delPOverPz'].Fill(Ptruthz,delPOverPz)
    if chi2>25: continue
    h['delPOverP2'].Fill(Ptruth,delPOverP)
-   h['delPOverP2z'].Fill(Ptruth,delPOverPz)
 # try measure impact parameter
    trackDir = fittedState.getDir()
    trackPos = fittedState.getPos()
@@ -284,54 +208,54 @@ def myEventLoop(N):
    dist = 0
    for i in range(3):   dist += (vx(i)-trackPos(i)-t*trackDir(i))**2
    dist = ROOT.TMath.Sqrt(dist)
-<<<<<<< HEAD
-#h['IP'].Fill(dist)
-   key+= 1
-   h['pdgCode'].Fill(mcPart.GetPdgCode())
-   h['posZ_all'].Fill(trackPos(2))
-   h['posXY_all'].Fill(trackPos(0), trackPos(1))
-   h['P_all'].Fill(P)
-                       
-   #if mcPartKey == eid :
-   h['delEOverP'].Fill(eloss/P)
-   h['P_ele'].Fill(P)
-   h['posZ_ele'].Fill(trackPos(2))
-   h['posXY_ele'].Fill(trackPos(0), trackPos(1))
-
-=======
    h['IP'].Fill(dist) 
->>>>>>> FETCH_HEAD
+   key+= 1  
 # ---
-# loop over particles, 2-track combinations
-  for HNL in sTree.Particles:
-     t1,t2 = HNL.GetDaughter(0),HNL.GetDaughter(1) 
+# go for 2-track combinations
+  if len(fittedTracks) == 2:
+     LV  = {}
      PosDir = {} 
-     for tr in [t1,t2]:
-      xx  = sTree.FitTracks[tr].getFittedState()
+     for tr in fittedTracks:
+      xx  = fittedTracks[tr].getFittedState()
       PosDir[tr] = [xx.getPos(),xx.getDir()]
+     keys = fittedTracks.keys()
+     t1,t2 = keys[0],keys[1] 
      xv,yv,zv,doca = myVertex(t1,t2,PosDir)
-     h['Doca'].Fill(dist) 
-     if  dist>5 : continue
-     HNLPos = ROOT.TLorentzVector()
-     HNL.ProductionVertex(HNLPos)
-     HNLMom = ROOT.TLorentzVector()
-     HNL.Momentum(HNLMom)
+     h['Doca'].Fill(dist)  
+     print 'hnlvertex',n,xv,yv,zv,doca
+     HNLPos = ROOT.TVector3(xv,yv,zv)
+     for tr in fittedTracks:
+      xx  = fittedTracks[tr].getFittedState()
+      # make a new rep
+      rep = ROOT.genfit.RKTrackRep(xx.getPDG())
+      pos = xx.getPos()
+      mom = xx.getMom()
+      state = ROOT.genfit.StateOnPlane(rep)
+      rep.setPosMom(state, pos, mom)
+      origPlane = state.getPlane()
+      origState = ROOT.genfit.StateOnPlane(state)
+      try:
+       rep.extrapolateToPoint(state, HNLPos, False)
+      except:
+        print 'extrap did not worked'
+      LV[tr] = ROOT.TLorentzVector()
+      mass = PDG.GetParticle(xx.getPDG()).Mass()
+      mom = rep.getMom(state)  
+      E = ROOT.TMath.Sqrt( mass*mass + mom.Mag2() )
+      LV[tr].SetPxPyPzE(mom.x(),mom.y(),mom.z(),E)
+     HNL = LV[t1]+LV[t2]
      tr = ROOT.TVector3(0,0,ShipGeo.target.z0)
      t = 0
-     for i in range(3):   t += HNLMom(i)/HNLMom.P()*(tr(i)-HNLPos(i)) 
+     for i in range(3):   t += HNL(i)/HNL.P()*(tr(i)-HNLPos(i)) 
      dist = 0
-     for i in range(3):   dist += (tr(i)-HNLPos(i)-t*HNLMom(i)/HNLMom.P())**2
+     for i in range(3):   dist += (tr(i)-HNLPos(i)-t*HNL(i)/HNL.P())**2
      dist = ROOT.TMath.Sqrt(dist)
-<<<<<<< HEAD
-     #h['IP0'].Fill(dist)
-     #h['IP0/mass'].Fill(HNL.M(),dist)
-#h['HNL'].Fill(HNL.M())
-
-=======
      h['IP0'].Fill(dist)  
-     h['IP0/mass'].Fill(HNLMom.M(),dist)
-     h['HNL'].Fill(HNLMom.M())
->>>>>>> FETCH_HEAD
+     h['IP0/mass'].Fill(HNL.M(),dist)
+     h['HNL'].Fill(HNL.M())
+# try to make it persistent
+     vx = ROOT.TLorentzVector(HNLPos,0.)  # time not set
+     particle = ROOT.TParticle(9900015,0,-1,-1,t1,t2,HNL,vx)
 
 def access2SmearedHits():
  key = 0

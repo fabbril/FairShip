@@ -17,6 +17,16 @@
 #pragma link C++ class ecalDigi;
 #pragma link C++ class ecalPrepare;
 #pragma link C++ class ecalAnalysisSimple;
+<<<<<<< HEAD
 #pragma link C++ class MuonBeamGen;
+=======
+#pragma link C++ class ecalAnalysisMaterial;
+#pragma link C++ class ecalMaximum;
+#pragma link C++ class ecalMaximumLocator;
+#pragma link C++ class ecalCluster;
+#pragma link C++ class ecalClusterFinder;
+#pragma link C++ class ecalClusterCalibration;
+#pragma link C++ class ecalDrawer;
+>>>>>>> FETCH_HEAD
 
 #endif

@@ -10,7 +10,7 @@
 
 const Double_t cm = 10.; // pythia units are mm
 const Double_t c_light = 2.99792458e+10; // speed of light in cm/sec (c_light   = 2.99792458e+8 * m/s)
-
+const Bool_t debug = false;
 using namespace Pythia8;
 
 // -----   Default constructor   -------------------------------------------
@@ -18,7 +18,7 @@ HNLPythia8Generator::HNLPythia8Generator()
 {
   fId         = 2212; // proton
   fMom        = 400;  // proton
-  fHNL        = 9900014;    // HNL  pdg code
+  fHNL        = 9900015;    // HNL  pdg code
   fLmin       = 5000.*cm;    // mm minimum  decay position z  ROOT units !
   fLmax       = 12000.*cm;   // mm maximum decay position z
 }
@@ -27,17 +27,19 @@ HNLPythia8Generator::HNLPythia8Generator()
 // -----   Default constructor   -------------------------------------------
 Bool_t HNLPythia8Generator::Init() 
 {
+  if ( debug ){List(9900015);}
   if (fUseRandom1) fRandomEngine = new PyTr1Rng();
   if (fUseRandom3) fRandomEngine = new PyTr3Rng();
   fPythia.setRndmEnginePtr(fRandomEngine);
 
-  cout<<"Beam Momentum "<<fMom<<endl;
+  if ( debug ){cout<<"Beam Momentum "<<fMom<<endl;}
   fPythia.init(fId, 2212, 0., 0., fMom, 0., 0., 0.);
   TDatabasePDG* pdgBase = TDatabasePDG::Instance();
   Double_t root_ctau = pdgBase->GetParticle(fHNL)->Lifetime();
-  cout<<"tau root "<<root_ctau<< "[s] ctau root = " << root_ctau*3e10 << "[cm]"<<endl;
+  if ( debug ){cout<<"tau root "<<root_ctau<< "[s] ctau root = " << root_ctau*3e10 << "[cm]"<<endl;}
   fctau = fPythia.particleData.tau0(fHNL); //* 3.3333e-12
-  cout<<"ctau pythia "<<fctau<<"[mm]"<<endl;
+  if ( debug ){cout<<"ctau pythia "<<fctau<<"[mm]"<<endl;}
+  if ( debug ){List(9900015);}
   
   return kTRUE;
 }
@@ -95,7 +97,7 @@ Bool_t HNLPythia8Generator::ReadEvent(FairPrimaryGenerator* cpg)
          Double_t beta = p/e; 
          tS = tp + LS/beta; // units ? [mm/c] + [mm/beta] (beta is dimensionless speed, and c=1 here)
                             // if one would use [s], then tS = tp/(cm*c_light) + (LS/cm)/(beta*c_light) = tS/(cm*c_light) i.e. units look consisent
-         w = TMath::Exp(-LS/(beta*gam*fctau))*( TMath::Exp(-fLmin/(beta*gam*fctau)) - TMath::Exp(-fLmax/(beta*gam*fctau)) );
+         w = TMath::Exp(-LS/(beta*gam*fctau))*( (fLmax-fLmin)/(beta*gam*fctau) );
          im  = (Int_t)fPythia.event[i].mother1();
          zm  = fPythia.event[im].zProd();
          xm  = fPythia.event[im].xProd();  
@@ -164,13 +166,9 @@ void HNLPythia8Generator::SetParameters(char* par)
 {
   // Set Parameters
     fPythia.readString(par);
-    cout<<"fPythia.readString(\""<<par<<"\")"<<endl;
+    if ( debug ){cout<<"fPythia.readString(\""<<par<<"\")"<<endl;}
 } 
 
-// -------------------------------------------------------------------------
-void HNLPythia8Generator::Print(){
-  fPythia.settings.listAll();
-}
 // -------------------------------------------------------------------------
 
 ClassImp(HNLPythia8Generator)
