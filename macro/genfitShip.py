@@ -1,5 +1,5 @@
 # setenv LD_LIBRARY_PATH ${LD_LIBRARY_PATH}:/media/ShipSoft/genfit-build/lib
-inputFile = 'ship.Pythia8-TGeant4.root'
+inputFile = 'geant_test15_newmudec_g4_200.root'
 debug = False
 withNoAmbiguities = None # True   for debugging purposes
 nEvents   = 99999
@@ -66,7 +66,6 @@ run = ROOT.FairRunSim()
 modules = shipDet_conf.configure(run,ShipGeo)
 
 fout = ROOT.TFile(outFile,'update')
-
 class makeHitList:
  " convert FairSHiP MC hits to measurements"
  def __init__(self,fn):
@@ -77,7 +76,7 @@ class makeHitList:
   self.fGenFitArray.BypassStreamer(ROOT.kFALSE)
   self.fitTrack2MC  = ROOT.std.vector('int')()
   self.SmearedHits  = ROOT.TClonesArray("TVectorD") 
-
+  
   if self.sTree.GetBranch("FitTracks"):
    self.sTree.SetBranchAddress("FitTracks", self.fGenFitArray)
    self.sTree.SetBranchAddress("SmearedHits",self.SmearedHits)
@@ -114,10 +113,10 @@ class makeHitList:
      if abs(top.y())>abs(bot.y()): h['distu'].Fill(dw)
      if abs(top.y())<abs(bot.y()): h['distv'].Fill(dw)
      return smearedHit
-  
+ 
  def execute(self,n):
-  if n > self.nEvents-1: return None 
-  rc    = self.sTree.GetEvent(n) 
+  if n > self.nEvents-1: return None
+  rc    = self.sTree.GetEvent(n)
   if n%1000==0: print "==> event ",n
   nShits = self.sTree.strawtubesPoint.GetEntriesFast() 
   hitPosLists = {}
@@ -144,11 +143,13 @@ class makeHitList:
   return hitPosLists
 
 geoMat =  ROOT.genfit.TGeoMaterialInterface()
+
 PDG = ROOT.TDatabasePDG.Instance()
 # init geometry and mag. field
 tgeom = ROOT.TGeoManager("Geometry", "Geane geometry")
 geofile = inputFile.replace('ship.','geofile_full.')
-tgeom.Import(geofile)
+#tgeom.Import(geofile)
+tgeom.Import("geofile_full.root")
 #
 bfield = ROOT.genfit.BellField(ShipGeo.Bfield.max ,ShipGeo.Bfield.z,2)
 fM = ROOT.genfit.FieldManager.getInstance()
