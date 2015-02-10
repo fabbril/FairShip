@@ -1,10 +1,10 @@
 # setenv LD_LIBRARY_PATH ${LD_LIBRARY_PATH}:/media/ShipSoft/genfit-build/lib
-inputFile = 'ship.Pythia8-TGeant4.root'
+inputFile = 'ship.10.0.MuonBeam-TGeant4.root'
 debug = False
 withNoAmbiguities = None # True   for debugging purposes
 nEvents   = 99999
 withHists = True
-vertexing = True
+vertexing = False
 dy = None
 
 import ROOT,os,sys,getopt
@@ -28,7 +28,7 @@ for o, a in opts:
             nEvents = int(a)
         if o in ("-Y"): 
             dy = float(a)
-            inputFile = 'ship.'+str(dy)+'.Pythia8-TGeant4.root'
+            inputFile = 'ship.'+str(dy)+'.MuonBeam-TGeant4.root'
 
 # need to figure out which geometry was used
 if not dy:

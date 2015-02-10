@@ -34,9 +34,7 @@ ecalStructureFiller.cxx
 ecalDigi.cxx
 ecalPrepare.cxx
 ecalAnalysisSimple.cxx
-<<<<<<< HEAD
 MuonBeamGen.cxx
-=======
 ecalAnalysisMaterial.cxx
 ecalMaximum.cxx
 ecalMaximumLocator.cxx
@@ -44,7 +42,6 @@ ecalCluster.cxx
 ecalClusterFinder.cxx
 ecalClusterCalibration.cxx
 ecalDrawer.cxx
->>>>>>> FETCH_HEAD
 )
 
 Set(LINKDEF ecalLinkDef.h)
