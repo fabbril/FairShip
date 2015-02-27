@@ -24,11 +24,11 @@ inactivateMuonProcesses = False   # provisionally for making studies of various 
 checking4overlaps = False
 phiRandom   = False  # only relevant for muon background generator
 followMuon  = False   # only transport muons for a fast muon only background estimate
-
+nuRadiography = False # misuse GenieGenerator for neutrino radiography and geometry timing test
 try:
-        opts, args = getopt.getopt(sys.argv[1:], "D:FHPu:n:i:f:c:hqv:s:l:A:Y:i:m:co:",["Pythia6","Pythia8","Genie","Ntuple","MuonBack","followMuon",\
+        opts, args = getopt.getopt(sys.argv[1:], "D:FHPu:n:i:f:c:hqv:s:l:A:Y:i:m:co:",["Pythia6","Pythia8","Genie","MuDIS","Ntuple","MuonBack","FollowMuon",\
                                    "Cosmics","nEvents=", "display", "seed=", "firstEvent=", "phiRandom", "mass=", "couplings=", "coupling=", 
-                                   "output="])
+                                   "output=","NuRadio"])
 except getopt.GetoptError:
         # print help information and exit:
         print ' enter --Pythia8 to generate events with Pythia8 (signal/inclusive) or --Genie for reading and processing neutrino interactions \
@@ -46,9 +46,11 @@ for o, a in opts:
             simEngine = "Pythia8"
         if o in ("--Genie"):
             simEngine = "Genie"
+        if o in ("--NuRadio"):
+            simEngine = "nuRadiography"
         if o in ("--Ntuple"):
             simEngine = "Ntuple"
-        if o in ("--followMuon"):
+        if o in ("--FollowMuon"):
             followMuon = True
         if o in ("--MuonBack"):
             simEngine = "MuonBack"
@@ -56,6 +58,8 @@ for o, a in opts:
             phiRandom = True
         if o in ("--Cosmics"):
             simEngine = "Cosmics"
+        if o in ("--MuDIS"):
+            simEngine = "muonDIS"
         if o in ("-n", "--nEvents"):
             nEvents = int(a)
         if o in ("-i", "--firstEvent"):
@@ -77,8 +81,11 @@ for o, a in opts:
         if o in ("-c", "--couplings", "--coupling"):
             theHNLcouplings = [float(c) for c in a.split(",")]
 
-if simEngine == "Genie" and not inputFile: inputFile = os.environ['SHIPSOFT']+'/data/Genie-mu-_anti_nu_mu-gntp.113.gst.root' # anti_nu_mu
+if (simEngine == "Genie" or simEngine == "nuRadiography") and not inputFile: 
+  inputFile = os.environ['SHIPSOFT']+'/data/Genie-mu-_anti_nu_mu-gntp.113.gst.root' # anti_nu_mu
 # nu_mu: inputFile = os.environ['SHIPSOFT']+'/data/Genie-mu+_nu_mu-gntp.113.gst.root'
+if simEngine == "muonDIS" and not inputFile:
+ inputFile = os.environ['SHIPSOFT']+'/data/muonDis.root' 
 
 print "FairShip setup for",simEngine,"to produce",nEvents,"events"
 if (simEngine == "Ntuple" or simEngine == "MuonBack") and not inputFile :
@@ -125,7 +132,6 @@ import shipDet_conf
 modules = shipDet_conf.configure(run,ship_geo)
 # -----Create PrimaryGenerator--------------------------------------
 primGen = ROOT.FairPrimaryGenerator()
-
 if simEngine == "Pythia8":
  primGen.SetTarget(ship_geo.target.z0, 0.) 
 # -----Pythia8--------------------------------------
@@ -141,17 +147,33 @@ if simEngine == "Pythia6":
  P6gen.SetMom(50.*u.GeV)
  P6gen.SetTarget("gamma/mu+","n0") # default "gamma/mu-","p+"
  primGen.AddGenerator(P6gen)
+# -----muon DIS Background------------------------
+if simEngine == "muonDIS":
+ primGen.SetTarget(0., 0.) 
+ DISgen = ROOT.MuDISGenerator()
+ DISgen.Init(inputFile,firstEvent) 
+ primGen.AddGenerator(DISgen)
+ nEvents = min(nEvents,DISgen.GetNevents())
+ print 'Generate ',nEvents,' with DIS input', ' first event',firstEvent
+# -----Neutrino Background------------------------
 if simEngine == "Genie":
 # Genie
- # pointZero =  -ship_geo.decayVolume.length/2. - 1.*u.cm  # nu interaction in last 10% of interactionLength of mushield
- pointZero =   0.  # for testing
- primGen.SetTarget(pointZero, 0.)
+ primGen.SetTarget(0., 0.) # do not interfere with GenieGenerator
  Geniegen = ROOT.GenieGenerator()
  Geniegen.Init(inputFile,firstEvent) 
- Geniegen.SetPositions(ship_geo.target.z0)
+ Geniegen.SetPositions(ship_geo.target.z0, ship_geo.tauMS.zMSC, ship_geo.TrackStation2.z)
  primGen.AddGenerator(Geniegen)
  nEvents = min(nEvents,Geniegen.GetNevents())
  print 'Generate ',nEvents,' with Genie input', ' first event',firstEvent
+if simEngine == "nuRadiography":
+ primGen.SetTarget(0., 0.) # do not interfere with GenieGenerator
+ Geniegen = ROOT.GenieGenerator()
+ Geniegen.Init(inputFile,firstEvent) 
+ # Geniegen.SetPositions(ship_geo.target.z0, ship_geo.target.z0, ship_geo.MuonStation3.z)
+ Geniegen.SetPositions(ship_geo.target.z0, ship_geo.tauMS.zMSC, ship_geo.MuonStation3.z)
+ Geniegen.NuOnly()
+ primGen.AddGenerator(Geniegen)
+ print 'Generate ',nEvents,' for nuRadiography', ' first event',firstEvent
 #  add tungsten to PDG
  pdg = ROOT.TDatabasePDG.Instance()
  pdg.AddParticle('W','Ion', 1.71350e+02, True, 0., 74, 'XXX', 1000741840)
@@ -227,10 +249,7 @@ if inactivateMuonProcesses :
  import G4processes
  gProcessTable = G4processes.G4ProcessTable.GetProcessTable()
  procmu = gProcessTable.FindProcess('muIoni','mu+')
- procmu.SetVerboseLevel(2) 
-if simEngine == "Genie": 
- import configGenieGenerator
- configGenieGenerator.config(Geniegen)
+ procmu.SetVerboseLevel(2)
 # -----Start run----------------------------------------------------
 run.Run(nEvents)
 # -----Runtime database---------------------------------------------
@@ -248,6 +267,7 @@ if checking4overlaps:
  fGeo = ROOT.gGeoManager
  fGeo.SetNmeshPoints(10000)
  fGeo.CheckOverlaps(0.0001)  # 1 micron takes 5minutes
+ # fGeo.CheckOverlaps()
  fGeo.PrintOverlaps()
 # -----Finish-------------------------------------------------------
 timer.Stop()

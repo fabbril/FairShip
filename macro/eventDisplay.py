@@ -1,5 +1,5 @@
 #!/usr/bin/env python -i
-import ROOT,sys,getopt
+import ROOT,sys,getopt,os
 
 fMan = None
 fRun = None
@@ -61,36 +61,77 @@ if not InputFile:
  InputFile     ="ship."+tag+".root"  
 ParFile       ="ship.params."+tag.replace('_rec','')+".root"  
 OutFile	      ="tst."+tag+".root"
-
+#
+def speedUp():
+ for x in ["wire","gas"]:  
+   xvol = fGeo.GetVolume(x)
+   xvol.SetVisibility(0) 
+ ecal = top.GetNode("Ecal_1")
+ ecal.SetVisDaughters(0)
+ hcal = top.GetNode("Hcal_1")
+ hcal.SetVisDaughters(0)
+ 
+def toolBar():
+ topNodes={}
+ for x in top.GetNodes():
+  vn = x.GetName() 
+  topNodes[vn.split('_')[0]] = vn
+ tmp = open('toogle.py','w')
+ tmp.write('import ROOT,os\n')
+ tmp.write('def switch2(vn):\n')
+ tmp.write(' print vn\n')
+ tmp.write('def switch(vn):\n')
+ tmp.write(' evmgr = ROOT.gEve\n')
+ tmp.write(' sc    = evmgr.GetScenes()\n')
+ tmp.write(' geoscene = sc.FindChild("Geometry scene")\n')
+ tmp.write(' fGeo = ROOT.gGeoManager\n')
+ tmp.write(' top = fGeo.GetTopVolume()\n')
+ tmp.write(' v  = top.GetNode(vn)\n')
+ tmp.write(' if v.IsVisible()>0 or v.IsVisDaughters()>0 :\n')
+ tmp.write('  print "switch off ",vn\n')
+ tmp.write('  v.SetVisibility(0)\n')
+ tmp.write('  v.SetVisDaughters(0)\n')
+ tmp.write(' else:\n')
+ tmp.write('  print "switch on ",vn\n')
+ tmp.write('  v.SetVisibility(1)\n')
+ tmp.write('  v.SetVisDaughters(0)\n')
+ tmp.write('  if "Assembly" in v.GetVolume().__str__(): v.SetVisDaughters(1)\n')
+ tmp.write(' evmgr.ElementChanged(geoscene,True,True)\n')
+ tmp.close()
+ os.system('mv toogle.py $FAIRSHIP/python/')
+ ROOT.gStyle.SetScreenFactor(1.2)   # if you have a large screen, select 1.2 or 1.4
+ bar = ROOT.TControlBar( 'vertical', 'Toggle On / Off top nodes', 10, 10 )
+ tSorted = topNodes.keys()
+ tSorted.sort() 
+ for x in tSorted:
+  cmd =  r'TPython::Exec( "import toogle;toogle.switch(\'xxx\')" );'
+  ncmd = cmd.replace('xxx',topNodes[x])
+  bar.AddButton(x, ncmd, 'toogle On Off including daughters '+x )
+ bar.Show()
+ ROOT.gROOT.SaveContext()
+ return bar
 # draw Ecal yellow instead of black
 def ecalYellow():
- evmgr = ROOT.gEve
  sc    = evmgr.GetScenes()
  geoscene = sc.FindChild('Geometry scene')
- fGeo = g.FindObjectAny("FAIRGeom")
- ecal = fGeo.GetVolume("EcalModule3")
- if ecal : ecal.SetLineColor(ROOT.kYellow) 
- hcal = fGeo.GetVolume("HcalModule")
- if hcal : hcal.SetLineColor(ROOT.kOrange+3) 
+ ecal = top.GetNode("Ecal_1")
+ if ecal : 
+   ecal.GetVolume().SetLineColor(ROOT.kYellow) 
+ hcal = top.GetNode("Hcal_1")
+ if hcal : 
+   hcal.GetVolume().SetLineColor(ROOT.kOrange+3) 
  if ecal or hcal: evmgr.ElementChanged(geoscene,True,True)
 def switchOf(tag):
- evmgr = ROOT.gEve
  sc    = evmgr.GetScenes()
  geoscene = sc.FindChild('Geometry scene')
- fGeo = g.FindObjectAny("FAIRGeom")
- top=fGeo.GetTopVolume()
  for v in top.GetNodes():
    vname = v.GetName()
    if not vname.find(tag)<0:
      v.SetVisibility(0)
      v.SetVisDaughters(0)
- evmgr.ElementChanged(geoscene,True,True)
 def switchOn(tag):
- evmgr = ROOT.gEve
  sc    = evmgr.GetScenes()
  geoscene = sc.FindChild('Geometry scene')
- fGeo = g.FindObjectAny("FAIRGeom")
- top  = fGeo.GetTopVolume()
  for v in top.GetNodes():
    vname = v.GetName()
    if not vname.find(tag)<0:
@@ -99,23 +140,27 @@ def switchOn(tag):
      v.SetVisDaughters(1)
  evmgr.ElementChanged(geoscene,True,True)
 
-# switch of drawing of rock
-def switchOfRock():
- evmgr = ROOT.gEve
+def switchOffVacuumPlanes():
  sc    = evmgr.GetScenes()
  geoscene = sc.FindChild('Geometry scene')
- fGeo = g.FindObjectAny("FAIRGeom")
+ for v in fGeo.GetListOfVolumes():
+   vname = v.GetName()
+   if not vname.find("volPlane")<0:
+     v.SetVisibility(0)
+ evmgr.ElementChanged(geoscene,True,True)
+
+# switch of drawing of rock
+def switchOfRock():
+ sc    = evmgr.GetScenes()
+ geoscene = sc.FindChild('Geometry scene')
  for v in fGeo.GetListOfVolumes():
    vname = v.GetName()
    if not vname.lower().find('rock')<0:
      v.SetVisibility(0)
  evmgr.ElementChanged(geoscene,True,True)
 def switchOfAll(exc):
- evmgr = ROOT.gEve
  sc    = evmgr.GetScenes()
  geoscene = sc.FindChild('Geometry scene')
- fGeo = g.FindObjectAny("FAIRGeom")
- top=fGeo.GetTopVolume()
  for v in top.GetNodes():
    vname = v.GetName()
    if not vname.find('cave')< 0 : continue
@@ -127,10 +172,8 @@ def switchOfAll(exc):
     v.SetVisDaughters(0)
  evmgr.ElementChanged(geoscene,True,True) 
 def switchOnAll(exc):
- evmgr = ROOT.gEve
  sc    = evmgr.GetScenes()
  geoscene = sc.FindChild('Geometry scene')
- fGeo = g.FindObjectAny("FAIRGeom")
  for v in top.GetNodes():
    vname = v.GetName()
    if not vname.find('cave')< 0 : continue
@@ -144,7 +187,6 @@ def switchOnAll(exc):
 
 def select(pattern):
  exc = []
- fGeo = g.FindObjectAny("FAIRGeom")
  for v in fGeo.GetListOfVolumes():
    vname = v.GetName()
    if not vname.find(pattern) < 0 : exc.append(vname)
@@ -188,10 +230,17 @@ fMan.AddTask(EcalPoints)
 fMan.AddTask(StrawPoints)
 fMan.AddTask(RpcPoints)
 fMan.Init(1,5,10000) # default Init(visopt=1, vislvl=3, maxvisnds=10000), ecal display requires vislvl=4
-ecalYellow()
-
-fGeo  = ROOT.gGeoManager  
+#
+fGeo  = ROOT.gGeoManager 
+top   = fGeo.GetTopVolume()
+evmgr = ROOT.gEve
 sTree = g.FindObjectAny('cbmsim')
+#
+speedUp()
+ecalYellow()
+# create toolbar
+bar = toolBar()
+
 def search(lvdict,tag):
   for x in lvdict: 
    if not x.find(tag)<0: print x

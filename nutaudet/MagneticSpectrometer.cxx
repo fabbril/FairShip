@@ -306,11 +306,11 @@ void MagneticSpectrometer::ConstructGeometry()
     //********
     //Sensitive Volume for Barbara studies placed in top volume. It is at 1 cm from HPT number 6
     //
-    TGeoBBox *Plane = new TGeoBBox("Plane", XtrSize/2, 11*m/2, 0.1*cm/2);
-    TGeoVolume *volPlane = new TGeoVolume("volPlane",Plane,vacuum);
-    volPlane->SetLineColor(kRed-5);
-    AddSensitiveVolume(volPlane);
-    top->AddNode(volPlane, 1, new TGeoTranslation(0,0,zMSCenter + zSizeMS/2+ 1*cm + 0.1*cm/2));
+    //TGeoBBox *Plane = new TGeoBBox("Plane", XtrSize/2, 11*m/2, 0.1*cm/2);
+    //TGeoVolume *volPlane = new TGeoVolume("volPlane",Plane,vacuum);
+    //volPlane->SetLineColor(kRed-5);
+    //AddSensitiveVolume(volPlane);
+    //top->AddNode(volPlane, 1, new TGeoTranslation(0,0,zMSCenter + zSizeMS/2+ 1*cm + 0.1*cm/2));
     
     //10 cm of Concrete on which the whole Magnetic Spectrometer volume will be placed
     TGeoBBox *Base = new TGeoBBox("Base", XtrSize/2, 10*cm/2, ArmWidth+MiddleGap/2);
@@ -345,7 +345,12 @@ Bool_t  MagneticSpectrometer::ProcessHits(FairVolume* vol)
        // Int_t MotherID =p->GetFirstMother();
         //cout <<mp->GetPdgCode();
         //cout << endl;
-        AddHit(fTrackID, fVolumeID, TVector3(fPos.X(),  fPos.Y(),  fPos.Z()),
+        TLorentzVector Pos; 
+        gMC->TrackPosition(Pos); 
+        Double_t xmean = (fPos.X()+Pos.X())/2. ;      
+        Double_t ymean = (fPos.Y()+Pos.Y())/2. ;      
+        Double_t zmean = (fPos.Z()+Pos.Z())/2. ;     
+        AddHit(fTrackID, fVolumeID, TVector3(xmean, ymean,  zmean),
                TVector3(fMom.Px(), fMom.Py(), fMom.Pz()), fTime, fLength,
                fELoss, pdgCode);
         

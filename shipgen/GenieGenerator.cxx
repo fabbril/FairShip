@@ -28,6 +28,7 @@ Bool_t GenieGenerator::Init(const char* fileName) {
 }
 // -----   Default constructor   -------------------------------------------
 Bool_t GenieGenerator::Init(const char* fileName, const int firstEvent) {
+  fNuOnly = false;
   fLogger = FairLogger::GetLogger();
   fLogger->Info(MESSAGE_ORIGIN,"Opening input file %s",fileName);
   fInputFile  = new TFile(fileName);
@@ -76,6 +77,7 @@ Double_t GenieGenerator::MeanMaterialBudget(const Double_t *start, const Double_
   // mparam[4] - length: sum(x_i) [cm]
   // mparam[5] - Z/A mean: sum(x_i*Z_i/A_i)/sum(x_i) [adimensional]
   // mparam[6] - number of boundary crosses
+  // mparam[7] - maximum density encountered (g/cm^3)
   //
   //  Origin:  Marian Ivanov, Marian.Ivanov@cern.ch
   //
@@ -85,7 +87,7 @@ Double_t GenieGenerator::MeanMaterialBudget(const Double_t *start, const Double_
   //
 
   mparam[0]=0; mparam[1]=1; mparam[2] =0; mparam[3] =0;
-  mparam[4]=0; mparam[5]=0; mparam[6]=0;
+  mparam[4]=0; mparam[5]=0; mparam[6]=0; mparam[7]=0;
   //
   Double_t bparam[6]; // total parameters
   Double_t lparam[6]; // local parameters
@@ -119,6 +121,7 @@ Double_t GenieGenerator::MeanMaterialBudget(const Double_t *start, const Double_
   }
   TGeoMaterial *material = startnode->GetVolume()->GetMedium()->GetMaterial();
   lparam[0]   = material->GetDensity();
+  if (lparam[0] > mparam[7]) mparam[7]=lparam[0];
   lparam[1]   = material->GetRadLen();
   lparam[2]   = material->GetA();
   lparam[3]   = material->GetZ();
@@ -182,6 +185,7 @@ Double_t GenieGenerator::MeanMaterialBudget(const Double_t *start, const Double_
     length -= snext;
     material = currentnode->GetVolume()->GetMedium()->GetMaterial();
     lparam[0] = material->GetDensity();
+    if (lparam[0] > mparam[7]) mparam[7]=lparam[0];
     lparam[1]  = material->GetRadLen();
     lparam[2]  = material->GetA();
     lparam[3]  = material->GetZ();
@@ -285,8 +289,8 @@ Bool_t GenieGenerator::OldReadEvent(FairPrimaryGenerator* cpg)
      }
      fFirst = kFALSE;
     }
-    if (fn==fNevents) {fLogger->Fatal(MESSAGE_ORIGIN, "No more input events");}
-    fTree->GetEntry(fn);
+    if (fn==fNevents) {fLogger->Warning(MESSAGE_ORIGIN, "End of input file. Rewind.");}
+    fTree->GetEntry(fn%fNevents);
     fn++;
     if (fn%1000==0) {
       cout << "Info GenieGenerator: neutrino event-nr "<< fn << endl;
@@ -374,8 +378,8 @@ Bool_t GenieGenerator::ReadEvent(FairPrimaryGenerator* cpg)
 {
     fFirst = kFALSE;
     //some start/end positions in z (emulsion to Tracker 1)
-    Double_t start[3]={0.,0.,-3400.};
-    Double_t end[3]={0.,0.,2650.};
+    Double_t start[3]={0.,0.,startZ};
+    Double_t end[3]={0.,0.,endZ};
     if (fFirst){
       Double_t bparam=0.;
       Double_t mparam[7];
@@ -394,8 +398,8 @@ Bool_t GenieGenerator::ReadEvent(FairPrimaryGenerator* cpg)
       fFirst = kFALSE;
     }
 
-    if (fn==fNevents) {fLogger->Fatal(MESSAGE_ORIGIN, "No more input events");}
-    fTree->GetEntry(fn);
+    if (fn==fNevents) {fLogger->Warning(MESSAGE_ORIGIN, "End of input file. Rewind.");}
+    fTree->GetEntry(fn%fNevents);
     fn++;
     if (fn%100==0) {
       cout << "Info GenieGenerator: neutrino event-nr "<< fn << endl;
@@ -408,13 +412,13 @@ Bool_t GenieGenerator::ReadEvent(FairPrimaryGenerator* cpg)
     //cout << "Info GenieGenerator: neutrino " << neu << "p-in "<< pxv << pyv << pzv << " nf "<< nf << endl;
     //cout << "Info GenieGenerator: ztarget " << ztarget << endl;
     Double_t bparam=0.;
-    Double_t mparam[7];
+    Double_t mparam[8];
     Double_t pout[3] ;
     Double_t txnu=0;
     Double_t tynu=0;
     //Does this neutrino fly through material? Otherwise draw another pt..
     //cout << "Info GenieGenerator Start bparam while loop" << endl;
-    while (bparam<1.e-5){
+    while (bparam<1.e-10){
      //generate pt of ~0.3 GeV
      pout[0] = gRandom->Exp(0.2);
      pout[1] = gRandom->Exp(0.2);
@@ -447,6 +451,7 @@ Bool_t GenieGenerator::ReadEvent(FairPrimaryGenerator* cpg)
     Double_t z;
     //Int_t count=0;
     //cout << "Info GenieGenerator Start prob2int while loop, bparam= " << bparam << ", " << bparam*1.e8 <<endl;
+    //cout << "Info GenieGenerator What was maximum density, mparam[7]= " << mparam[7] << ", " << mparam[7]*1.e8 <<endl;
     while (prob2int<gRandom->Uniform(0.,1.)) {
       z=gRandom->Uniform(start[2],end[2]);
       x=txnu*(z-ztarget);
@@ -456,8 +461,9 @@ Bool_t GenieGenerator::ReadEvent(FairPrimaryGenerator* cpg)
       TGeoMaterial *mat = 0;
       if (node && !gGeoManager->IsOutside()) mat = node->GetVolume()->GetMaterial();
       //cout << "Info GenieGenerator: mat " <<  count << ", " << mat->GetName() << ", " << mat->GetDensity() << endl;
-      //density relative to Prob largest density on the market, i.e. use rho(Pt)
-      prob2int= mat->GetDensity()/21.45;
+      //density relative to Prob largest density along this trajectory, i.e. use rho(Pt)
+      prob2int= mat->GetDensity()/mparam[7];
+      if (prob2int>1.) cout << "***WARNING*** GenieGenerator: prob2int > Maximum density????" << prob2int << " maxrho:" << mparam[7] << " material: " <<  mat->GetName() << endl;
       //count+=1;
     }
     //cout << "Info GenieGenerator: prob2int " << prob2int << ", " << count << endl;
@@ -465,7 +471,7 @@ Bool_t GenieGenerator::ReadEvent(FairPrimaryGenerator* cpg)
     Double_t zrelative=z-ztarget;
     Double_t tof=TMath::Sqrt(x*x+y*y+zrelative*zrelative)/2.99792458e+6;
     cpg->AddTrack(neu,pout[0],pout[1],pout[2],x,y,z,-1,false,TMath::Sqrt(pout[0]*pout[0]+pout[1]*pout[1]+pout[2]*pout[2]),tof,mparam[0]*mparam[4]);
-
+    if (not fNuOnly){ 
 // second, outgoing lepton
     std::vector<double> pp = Rotate(x,y,zrelative,pxl,pyl,pzl);
     Int_t oLPdgCode = neu;
@@ -479,7 +485,7 @@ Bool_t GenieGenerator::ReadEvent(FairPrimaryGenerator* cpg)
          // cout << "f " << pdgf[i] << " pz "<< pzf[i] << endl;
        }
     //cout << "Info GenieGenerator Return from GenieGenerator" << endl;
-
+    }
   return kTRUE;
 }
 // -------------------------------------------------------------------------
