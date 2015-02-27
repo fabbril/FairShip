@@ -29,36 +29,51 @@ def setMagnetField(flag=None):
     gt = gTransportationManager
     gn = gt.GetNavigatorForTracking()
     world = gn.GetWorldVolume().GetLogicalVolume()
+    setField = {}
     for da in range(world.GetNoDaughters()):
-        vl = world.GetDaughter(da)
-        vln = vl.GetName().__str__()
-        lvl = vl.GetLogicalVolume()
-        if listOfFields.has_key(vln) :
-          lvl.SetFieldManager(listOfFields[vln],True)  
-          if flag=='dump': 
-              constField = listOfFields[vln].GetDetectorField().GetConstantFieldValue()
-              print 'set field for ',vln, constField
+        vl0  = world.GetDaughter(da)
+        vln  = vl0.GetName().__str__()
+        lvl0 = vl0.GetLogicalVolume()
+        if listOfFields.has_key(vln) :  setField[lvl0]=vln
+        for dda in range(lvl0.GetNoDaughters()): 
+         vl  = lvl0.GetDaughter(dda)
+         vln = vl.GetName().__str__()
+         lvl = vl.GetLogicalVolume()
+         if listOfFields.has_key(vln) :  setField[lvl]=vln
+    for lvl in setField:
+       lvl.SetFieldManager(listOfFields[setField[lvl]],True)  
+       if flag=='dump': 
+            constField = listOfFields[setField[lvl]].GetDetectorField().GetConstantFieldValue()
+            print 'set field for ',setField[lvl], constField
     g4Run = G4RunManager.GetRunManager()
     g4Run.GeometryHasBeenModified(True)
 
+def printWF(vl):
+    vln  = vl.GetName().__str__()
+    lvl  = vl.GetLogicalVolume()
+    cvol = lvl.GetSolid().GetCubicVolume()/G4Unit.m3
+    M    = lvl.GetMass()/G4Unit.kg
+    if M  < 5000.:   print '%-20s volume = %5.2Fm3  mass = %5.2F kg'%(vln,cvol,M)
+    else:            print '%-20s volume = %5.2Fm3  mass = %5.2F t'%(vln,cvol,M/1000.)
+    fm = lvl.GetFieldManager() 
+    if fm:  
+       fi = fm.GetDetectorField()
+       print '   Magnetic field:',fi.GetConstantFieldValue()/G4Unit.tesla
+    magnetMass = 0
+    if vln[0:3]=='Mag': magnetMass =  M # only count volumes starting with Mag
+    return magnetMass 
 def printWeightsandFields():
    gt = gTransportationManager
    gn = gt.GetNavigatorForTracking()
    world = gn.GetWorldVolume().GetLogicalVolume()
    magnetMass = 0
-   for da in range(world.GetNoDaughters()):
-       vl   = world.GetDaughter(da)
-       vln  = vl.GetName().__str__()
-       lvl  = vl.GetLogicalVolume()
-       cvol = lvl.GetSolid().GetCubicVolume()/G4Unit.m3
-       M    = lvl.GetMass()/G4Unit.kg
-       if M  < 5000.:   print '%10s volume = %5.2Fm3  mass = %5.2F kg'%(vln,cvol,M)
-       else:            print '%10s volume = %5.2Fm3  mass = %5.2F t'%(vln,cvol,M/1000.)
-       if not vln.find('Mag')<0 : magnetMass+=M
-       fm = lvl.GetFieldManager() 
-       if fm:  
-         fi = fm.GetDetectorField()
-         print 'Magnetic field:',vln,fi.GetConstantFieldValue()/G4Unit.tesla
+   for da0 in range(world.GetNoDaughters()):   
+     vl0   = world.GetDaughter(da0)
+     lvl0  = vl0.GetLogicalVolume()
+     if lvl0.GetNoDaughters()==0: magnetMass+=printWF(vl0) 
+     for da in range(lvl0.GetNoDaughters()):        
+       vl   = lvl0.GetDaughter(da)
+       magnetMass+=printWF(vl)
    print 'total magnet mass',magnetMass/1000.,'t'
    return
 def getRunManager():

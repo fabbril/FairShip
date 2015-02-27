@@ -6,32 +6,46 @@ def posHcal(z):
  HcalZSize = 0
  sz = "hcalz"+str(z)+".geo"
  floc = os.environ["FAIRSHIP"]+"/geometry"
- f =  open(floc+"/hcal.geo",'r')
- fn = open(floc+"/"+sz,'w')
+ f_hcal  = floc+"/hcal.geo"
+ f_hcalz = floc+"/"+sz
+ f = open(f_hcal) 
+ rewrite = True
+ if sz in os.listdir(floc):
+  test = os.popen("diff "+ f_hcal+ " "+ f_hcalz).read()
+  if len(test)<6: rewrite = False # only different is z position
+ if rewrite: fn = open(f_hcalz,'w')
  for l in f.readlines():
-   if not l.find("ZPos")<0:
+   if rewrite:
+    if not l.find("ZPos")<0:
       l ="ZPos="+str(z)+ "	#Position of Hcal  center	[cm]\n"
-   fn.write(l)
+    fn.write(l)
    if not l.find("HcalZSize")<0:
      HcalZSize = float(l[len('HcalZSize')+1:].split('#')[0]) 
  f.close()
- fn.close()  
- hcal=ROOT.hcal("Hcal", ROOT.kTRUE, sz)
+ if rewrite: fn.close()  
+ hcal = ROOT.hcal("Hcal", ROOT.kTRUE, sz)
  return hcal,HcalZSize
 def posEcal(z):
  EcalZSize = 0
  sz = "ecal_ellipse6x12m2z"+str(z)+".geo"
  floc = os.environ["FAIRSHIP"]+"/geometry"
- f =  open(floc+"/ecal_ellipse6x12m2.geo",'r')
- fn = open(floc+"/"+sz,'w')
+ f_ecal  = floc+"/ecal_ellipse6x12m2.geo"
+ f_ecalz = floc+"/"+sz
+ f = open(f_ecal) 
+ rewrite = True
+ if sz in os.listdir(floc):
+  test = os.popen("diff "+ f_ecal+ " "+ f_ecalz).read()
+  if len(test)<6: rewrite = False # only different is z position
+ if rewrite: fn = open(f_ecalz,'w')
  for l in f.readlines():
-   if not l.find("ZPos")<0:
+   if rewrite:
+    if not l.find("ZPos")<0:
       l ="ZPos="+str(z)+ "	#Position of Ecal start		[cm]\n"
-   fn.write(l)
+    fn.write(l)
    if not l.find("EcalZSize")<0:
      EcalZSize = float(l[len('EcalZSize')+1:].split('#')[0]) 
  f.close()
- fn.close()  
+ if rewrite: fn.close()  
  ecal = ROOT.ecal("Ecal", ROOT.kTRUE, sz)
  return ecal,EcalZSize
 
@@ -88,7 +102,8 @@ def configure(run,ship_geo):
  run.AddModule(Veto)
 
  if ship_geo.muShieldDesign==5 or ship_geo.muShieldDesign==1:
-  taumagneticspectrometer = ROOT.MagneticSpectrometer("MagneticSpectrometer", ship_geo.tauMS.zMSC, ship_geo.tauMS.zSize, ship_geo.tauMS.FeSlab, ship_geo.tauMS.RpcW,ship_geo.tauMS.ArmW, ship_geo.tauMS.GapV, ship_geo.tauMS.MGap, ship_geo.tauMS.Mfield, ship_geo.tauMS.HPTW, ship_geo.tauMS.RetYokeH, ROOT.kTRUE)
+  taumagneticspectrometer = ROOT.MagneticSpectrometer("MagneticSpectrometer", ship_geo.tauMS.zMSC, ship_geo.tauMS.zSize, ship_geo.tauMS.FeSlab, \
+  ship_geo.tauMS.RpcW,ship_geo.tauMS.ArmW, ship_geo.tauMS.GapV, ship_geo.tauMS.MGap, ship_geo.tauMS.Mfield, ship_geo.tauMS.HPTW, ship_geo.tauMS.RetYokeH, ROOT.kTRUE)
   taumagneticspectrometer.SetCoilParameters(ship_geo.tauMS.CoilH, ship_geo.tauMS.CoilW, ship_geo.tauMS.N, ship_geo.tauMS.CoilG);
   run.AddModule(taumagneticspectrometer)
   
@@ -150,8 +165,8 @@ def configure(run,ship_geo):
  #fMagField.SetField(0., ship_geo.Bfield.max ,0. )  
  #fMagField.SetFieldRegion(-250*u.cm, 250*u.cm,-250*u.cm, 250*u.cm, ship_geo.Bfield.z-100*u.cm, ship_geo.Bfield.z+100*u.cm)    
  #run.SetField(fMagField)
- if ship_geo.strawDesign == 4: fMagField = ROOT.ShipBellField("wilfried", ship_geo.Bfield.max ,ship_geo.Bfield.z,2 )  
- else :                        fMagField = ROOT.ShipBellField("wilfried", ship_geo.Bfield.max ,ship_geo.Bfield.z,1 )  
+ if ship_geo.strawDesign == 4: fMagField = ROOT.ShipBellField("wilfried", ship_geo.Bfield.max ,ship_geo.Bfield.z,2,ship_geo.Yheight/2.*u.m )  
+ else :                        fMagField = ROOT.ShipBellField("wilfried", ship_geo.Bfield.max ,ship_geo.Bfield.z,1,ship_geo.Yheight/2.*u.m )  
  run.SetField(fMagField)
 
 # return list of detector elements

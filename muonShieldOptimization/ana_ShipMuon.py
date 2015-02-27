@@ -503,6 +503,57 @@ def AnaEventLoop():
     Ptruth    = mcPart.GetP()
     fout.write( 'Ptruth %i %8.2F \n'%(mcPart.GetPdgCode(),Ptruth/u.GeV) ) 
 #
+def analyzeConcrete():
+ for m in ['','mu']:
+  ut.bookHist(h,'conc_hitz'+m,'concrete hit z '+m,100,-100.,100.)
+  ut.bookHist(h,'conc_hity'+m,'concrete hit y '+m,100,-15.,15.)
+  ut.bookHist(h,'conc_p'+m,'concrete hit p '+m,100,0.,300.)
+  ut.bookHist(h,'conc_pt'+m,'concrete hit pt '+m,100,0.,10.)
+  ut.bookHist(h,'conc_hitzy'+m,'concrete hit zy '+m,100,-100.,100.,100,-15.,15.)
+ top = fGeo.GetTopVolume()
+ magn = top.GetNode("magyoke_1")
+ z0 = magn.GetMatrix().GetTranslation()[2]/u.m
+ for fn in fchain:
+  f = ROOT.TFile(fn)
+  if not f.FindObjectAny('cbmsim'): 
+   print 'skip file ',f.GetName() 
+   continue
+  sTree = f.cbmsim
+  nEvents = sTree.GetEntries()
+  for n in range(nEvents):
+   sTree.GetEntry(n)
+   wg = sTree.MCTrack[0].GetWeight()   
+   for ahit in sTree.vetoPoint:
+     detID = ahit.GetDetectorID()
+     if logVols[detID] != 'rockD': continue  
+     m=''       
+     if abs(ahit.PdgCode()) == 13: m='mu'
+     h['conc_hitz'+m].Fill(ahit.GetZ()/u.m-z0,wg)
+     h['conc_hity'+m].Fill(ahit.GetY()/u.m,wg)
+     P = ROOT.TMath.Sqrt(ahit.GetPx()**2+ahit.GetPy()**2+ahit.GetPz()**2)
+     h['conc_p'+m].Fill(P/u.GeV,wg)
+     Pt = ROOT.TMath.Sqrt(ahit.GetPx()**2+ahit.GetPy()**2)
+     h['conc_pt'+m].Fill(Pt/u.GeV,wg)
+     h['conc_hitzy'+m].Fill(ahit.GetZ()/u.m-z0,ahit.GetY()/u.m,wg)
+ #
+     start = [ahit.GetX()/u.m,ahit.GetY()/u.m,ahit.GetZ()/u.m]
+     direc = [-ahit.GetPx()/P,-ahit.GetPy()/P,-ahit.GetPz()/P]
+     t = - start[0]/direc[0]
+     
+ ut.bookCanvas(h,key='Resultsmu',title='muons hitting concrete',nx=1000,ny=600,cx=2,cy=2)  
+ ut.bookCanvas(h,key='Results',title='hitting concrete',nx=1000,ny=600,cx=2,cy=2)  
+ for m in ['','mu']:
+  tc = h['Results'+m].cd(1)
+  h['conc_hity'+m].Draw()
+  tc = h['Results'+m].cd(2)
+  h['conc_hitz'+m].Draw()
+  tc = h['Results'+m].cd(3)
+  tc.SetLogy(1)
+  h['conc_pt'+m].Draw()
+  tc = h['Results'+m].cd(4)
+  tc.SetLogy(1)
+  h['conc_p'+m].Draw()
+
 def rareEventEmulsion(fname = 'rareEmulsion.txt'):
  ntot = 0
  fout = open(fname,'w')

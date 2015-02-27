@@ -1,6 +1,8 @@
 # setenv LD_LIBRARY_PATH ${LD_LIBRARY_PATH}:/media/ShipSoft/genfit-build/lib
 inputFile = 'ship.10.0.MuonBeam-TGeant4.root'
+geoFile   = None
 debug = False
+EcalDebugDraw = False
 withNoAmbiguities = None # True   for debugging purposes
 nEvents   = 99999
 withHists = True
@@ -11,7 +13,8 @@ import ROOT,os,sys,getopt
 from pythia8_conf import addHNLtoROOT
 import rootUtils as ut
 try:
-        opts, args = getopt.getopt(sys.argv[1:], "o:D:FHPu:n:f:c:hqv:sl:A:Y:i",["inputFile=","nEvents=","ambiguities","noVertexing"])
+        opts, args = getopt.getopt(sys.argv[1:], "o:D:FHPu:n:f:g:c:hqv:sl:A:Y:i",\
+           ["ecalDebugDraw","inputFile=","geoFile=","nEvents=","ambiguities","noVertexing"])
 except getopt.GetoptError:
         # print help information and exit:
         print ' enter --inputFile=  --nEvents= number of events to process, ambiguities wire ambiguities default none' 
@@ -24,11 +27,16 @@ for o, a in opts:
             withNoAmbiguities = True
         if o in ("-f", "--inputFile"):
             inputFile = a
+        if o in ("-g", "--geoFile"):
+            geoFile = a
         if o in ("-n", "--nEvents="):
             nEvents = int(a)
         if o in ("-Y"): 
             dy = float(a)
             inputFile = 'ship.'+str(dy)+'.MuonBeam-TGeant4.root'
+        if o in ("--ecalDebugDraw"):
+            EcalDebugDraw = True
+if EcalDebugDraw: ROOT.gSystem.Load("libASImage")
 
 # need to figure out which geometry was used
 if not dy:
@@ -75,21 +83,28 @@ fout = ROOT.TFile(outFile,'update')
 
 def myVertex(t1,t2,PosDir):
  # closest distance between two tracks
-   V=0
-   for i in range(3):   V += PosDir[t1]['direction'](i)*PosDir[t2]['direction'](i)
-   S1=0
-   for i in range(3):   S1 += (PosDir[t1]['position'](i)-PosDir[t2]['position'](i))*PosDir[t1]['direction'](i)
-   S2=0
-   for i in range(3):   S2 += (PosDir[t1]['position'](i)-PosDir[t2]['position'](i))*PosDir[t2]['direction'](i)
-   l = (S2-S1*V)/(1-V*V)
-   x2 = PosDir[t2]['position'](0)+l*PosDir[t2]['direction'](0)
-   y2 = PosDir[t2]['position'](1)+l*PosDir[t2]['direction'](1)
-   z2 = PosDir[t2]['position'](2)+l*PosDir[t2]['direction'](2)
-   x1 = PosDir[t1]['position'](0)+l*PosDir[t1]['direction'](0)
-   y1 = PosDir[t1]['position'](1)+l*PosDir[t1]['direction'](1)
-   z1 = PosDir[t1]['position'](2)+l*PosDir[t1]['direction'](2)
-   dist = ROOT.TMath.Sqrt((x1-x2)**2+(y1-y2)**2+(z1-z2)**2)
-   return (x1+x2)/2.,(y1+y2)/2.,(z1+z2)/2.,dist
+    # d = |pq . u x v|/|u x v|
+   a = ROOT.TVector3(PosDir[t1]['position'](0) ,PosDir[t1]['position'](1), PosDir[t1]['position'](2))
+   u = ROOT.TVector3(PosDir[t1]['direction'](0),PosDir[t1]['direction'](1),PosDir[t1]['direction'](2))
+   c = ROOT.TVector3(PosDir[t2]['position'](0) ,PosDir[t2]['position'](1), PosDir[t2]['position'](2))
+   v = ROOT.TVector3(PosDir[t2]['direction'](0),PosDir[t2]['direction'](1),PosDir[t2]['direction'](2))
+   pq = a-c
+   uCrossv = u.Cross(v)
+   dist  = pq.Dot(uCrossv)/(uCrossv.Mag()+1E-8)
+   # u.a - u.c + s*|u|**2 - u.v*t    = 0
+   # v.a - v.c + s*v.u    - t*|v|**2 = 0
+   E = u.Dot(a) - u.Dot(c) 
+   F = v.Dot(a) - v.Dot(c) 
+   A,B = u.Mag2(), -u.Dot(v) 
+   C,D = u.Dot(v), -v.Mag2()
+   t = -(C*E-A*F)/(B*C-A*D)
+   X = c.x()+v.x()*t
+   Y = c.y()+v.y()*t
+   Z = c.z()+v.z()*t
+   # sT = ROOT.gROOT.FindAnything('cbmsim')
+   #print 'test2 ',X,Y,Z,dist
+   #print 'truth',sTree.MCTrack[2].GetStartX(),sTree.MCTrack[2].GetStartY(),sTree.MCTrack[2].GetStartZ()
+   return X,Y,Z,abs(dist)
 
 class ShipReco:
  " convert FairSHiP MC hits to measurements"
@@ -131,7 +146,7 @@ class ShipReco:
      ez = ahit.GetZ()
    #distance to wire, and smear it.
      dw  = ahit.dist2Wire()
-     smear = 0
+     smear = dw
      if not no_amb: smear = ROOT.fabs(self.random.Gaus(dw,ShipGeo.straw.resol))
      smearedHit = {'mcHit':ahit,'xtop':top.x(),'ytop':top.y(),'z':top.z(),'xbot':bot.x(),'ybot':bot.y(),'z':bot.z(),'dist':smear}
      # print 'smeared hit:',top.x(),top.y(),top.z(),bot.x(),bot.y(),bot.z(),"dist",smear,ex,ey,ez,ox,oy,oz
@@ -183,8 +198,9 @@ class ShipReco:
    momM = ROOT.TVector3(0,0,3.*u.GeV)
 # approximate covariance
    covM = ROOT.TMatrixDSym(6)
-   resolution = 0.02 #0.01
+   resolution = ShipGeo.straw.resol
    for  i in range(3):   covM[i][i] = resolution*resolution
+   covM[0][0]=resolution*resolution*100.
    for  i in range(3,6): covM[i][i] = ROOT.TMath.pow(resolution / nM / ROOT.TMath.sqrt(3), 2)
 # trackrep
    rep = ROOT.genfit.RKTrackRep(pdg)
@@ -202,17 +218,23 @@ class ShipReco:
       hitCov[6][6] = resolution*resolution
       tp = ROOT.genfit.TrackPoint(fitTrack[atrack]) # note how the point is told which track it belongs to 
       measurement = ROOT.genfit.WireMeasurement(m,hitCov,1,6,tp) # the measurement is told which trackpoint it belongs to
+      # print measurement.getMaxDistance()
+      measurement.setMaxDistance(0.5*u.cm)
+      # measurement.setLeftRightResolution(-1)
       tp.addRawMeasurement(measurement) # package measurement in the TrackPoint                                          
       fitTrack[atrack].insertPoint(tp)  # add point to Track
 #check
    if not fitTrack[atrack].checkConsistency():
     print 'Problem with track before fit, not consistent',self.fitTrack[atrack]
     continue
-# do the fit
-   try:    fitter.processTrack(fitTrack[atrack])
+# do the fit, stop message about matrix not positive definit
+   orglevel = ROOT.gErrorIgnoreLevel
+   ROOT.gErrorIgnoreLevel = ROOT.kError
+   try:  fitter.processTrack(fitTrack[atrack]) # processTrackWithRep(fitTrack[atrack],rep,True)
    except: 
        print "genfit failed to fit track"
        continue
+   ROOT.gErrorIgnoreLevel = orglevel
 #check
    if not fitTrack[atrack].checkConsistency():
     print 'Problem with track after fit, not consistent',self.fitTrack[atrack]
@@ -222,6 +244,7 @@ class ShipReco:
 # make track persistent
    nTrack   = SHiP.fGenFitArray.GetEntries()
    theTrack = ROOT.genfit.Track(fitTrack[atrack])
+   if not debug: theTrack.prune("CFL")  #  http://sourceforge.net/p/genfit/code/HEAD/tree/trunk/core/include/Track.h#l280 
    self.fGenFitArray[nTrack] = theTrack
    self.fitTrack2MC.push_back(atrack)
    if debug: 
@@ -237,7 +260,7 @@ class ShipReco:
   for tr in range(fittedTracks.GetEntries()):
    fitStatus = fittedTracks[tr].getFitStatus()
    if not fitStatus.isFitConverged(): continue
-   nmeas = fittedTracks[tr].getNumPoints()
+   nmeas = fitStatus.getNdf()
    chi2  = fitStatus.getChi2()/nmeas
    if chi2<50 and not chi2<0: 
       xx  = fittedTracks[tr].getFittedState()
@@ -324,19 +347,21 @@ ecalClusterCalib.SetCalibration(3, ecalCl3Ph)
 caloTasks.append(ecalClusterCalib)
 # Cluster finder
 ecalClusterFind=ROOT.ecalClusterFinder("clusterFinder",dflag)
-caloTasks.append(ecalClusterFind)
-# ecal drawer
-# ecalDrawer=ROOT.ecalDrawer("clusterFinder",10)
-# run.AddTask(ecalDrawer)
+caloTasks.append(ecalClusterFind)#
+if EcalDebugDraw:
+ # ecal drawer: Draws calorimeter structure, incoming particles, clusters, maximums
+ ecalDrawer=ROOT.ecalDrawer("clusterFinder",10)
+ caloTasks.append(ecalDrawer)
 
 geoMat =  ROOT.genfit.TGeoMaterialInterface()
 PDG = ROOT.TDatabasePDG.Instance()
 # init geometry and mag. field
 tgeom = ROOT.TGeoManager("Geometry", "Geane geometry")
-geofile = inputFile.replace('ship.','geofile_full.')
-tgeom.Import(geofile)
+if not geoFile:
+ geoFile = inputFile.replace('ship.','geofile_full.')
+tgeom.Import(geoFile)
 #
-bfield = ROOT.genfit.BellField(ShipGeo.Bfield.max ,ShipGeo.Bfield.z,2)
+bfield = ROOT.genfit.BellField(ShipGeo.Bfield.max ,ShipGeo.Bfield.z,2, ShipGeo.Yheight/2.*u.m)
 fM = ROOT.genfit.FieldManager.getInstance()
 fM.init(bfield)
  
@@ -346,7 +371,9 @@ if debug: # init event display
  display = ROOT.genfit.EventDisplay.getInstance()
 
 # init fitter
-fitter          = ROOT.genfit.KalmanFitterRefTrack()
+#fitter          = ROOT.genfit.KalmanFitter()
+#fitter          = ROOT.genfit.KalmanFitterRefTrack()
+fitter          = ROOT.genfit.DAF()
 if debug: fitter.setDebugLvl(1) # produces lot of printout
 WireMeasurement = ROOT.genfit.WireMeasurement
 
@@ -359,8 +386,9 @@ ecalPrepare.InitPython(ecalStructure)
 ecalMaximums=ecalMaximumFind.InitPython(ecalStructure)
 ecalCalib=ecalClusterCalib.InitPython()
 ecalClusters=ecalClusterFind.InitPython(ecalStructure, ecalMaximums, ecalCalib)
+SHiP.EcalClusters = SHiP.sTree.Branch("EcalClusters",ecalClusters,32000,-1)
+if EcalDebugDraw: ecalDrawer.InitPython(SHiP.sTree.MCTrack, SHiP.sTree.EcalPoint, ecalStructure, ecalClusters)
 
-#for x in caloTasks: x.Init()
 # main loop
 for iEvent in range(0, SHiP.nEvents):
  ntracks = SHiP.execute(iEvent)
@@ -374,6 +402,7 @@ for iEvent in range(0, SHiP.nEvents):
  SHiP.mcLink.Fill()
  SHiP.SHbranch.Fill()
  for x in caloTasks: x.Exec('start')
+ SHiP.EcalClusters.Fill()
 
  if debug: print 'end of event after Fill'
  
